@@ -44,38 +44,40 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
             "type": cached.ioc_type,
             "source": cached.source,
             "cached": True,
-            "response": json.loads(cached.response)
+            "response": json.loads(cached.response),
         }
 
     if ioc_type in ("ipv4", "ipv6"):
-    abuse_result = check_ip(request.ioc)
-    otx_result = check_otx_ip(request.ioc)
 
-    combined_result = {
-        "abuseipdb": abuse_result,
-        "otx": otx_result
-    }
+        abuse_result = check_ip(request.ioc)
+        otx_result = check_otx_ip(request.ioc)
 
-    save_ioc(
-        db=db,
-        ioc=request.ioc,
-        ioc_type=ioc_type,
-        source="AbuseIPDB + OTX",
-        response=combined_result
-    )
+        combined_result = {
+            "abuseipdb": abuse_result,
+            "otx": otx_result,
+        }
 
-    return {
-        "ioc": request.ioc,
-        "type": ioc_type,
-        "source": "AbuseIPDB + OTX",
-        "cached": False,
-        "response": combined_result
-    }
+        save_ioc(
+            db=db,
+            ioc=request.ioc,
+            ioc_type=ioc_type,
+            source="AbuseIPDB + OTX",
+            response=combined_result,
+        )
+
+        return {
+            "ioc": request.ioc,
+            "type": ioc_type,
+            "source": "AbuseIPDB + OTX",
+            "cached": False,
+            "response": combined_result,
+        }
 
     raise HTTPException(
         status_code=400,
-        detail="IOC type not yet supported"
+        detail="IOC type not yet supported for enrichment",
     )
+
 
 @router.get("/history")
 def history(db: Session = Depends(get_db)):

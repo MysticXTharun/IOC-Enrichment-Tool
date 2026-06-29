@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     ABUSEIPDB_API_KEY: str
+    OTX_API_KEY: str
 
     model_config = SettingsConfigDict(
         env_file=".env",
