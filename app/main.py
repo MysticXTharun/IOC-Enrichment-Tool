@@ -1,17 +1,21 @@
 from fastapi import FastAPI
+
+from app.database.database import Base, engine
+from app.database import models
+
+Base.metadata.create_all(bind=engine)
+
 from app.api.routes import router
 
-app = FastAPI(
-    title="IOC Enrichment Tool",
-    version="0.1.0"
-)
+app = FastAPI(title="IOC Enrichment Tool")
 
 app.include_router(router)
 
 
 @app.get("/")
-async def root():
+def root():
     return {
         "status": "running",
-        "project": "IOC Enrichment Tool"
+        "project": "IOC Enrichment Tool",
+        "author": "Tharun",
     }
