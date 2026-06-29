@@ -32,3 +32,33 @@ def save_ioc(
     db.refresh(entry)
 
     return entry
+
+
+def get_history(db: Session):
+    return (
+        db.query(IOCSearch)
+        .order_by(IOCSearch.created_at.desc())
+        .all()
+    )
+
+
+def get_history_by_id(db: Session, record_id: int):
+    return (
+        db.query(IOCSearch)
+        .filter(IOCSearch.id == record_id)
+        .first()
+    )
+
+
+def delete_history(db: Session, record_id: int):
+    record = (
+        db.query(IOCSearch)
+        .filter(IOCSearch.id == record_id)
+        .first()
+    )
+
+    if record:
+        db.delete(record)
+        db.commit()
+
+    return record
