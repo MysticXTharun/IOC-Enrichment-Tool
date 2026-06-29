@@ -1,15 +1,17 @@
 from fastapi import FastAPI
+from app.api.routes import router
 
 app = FastAPI(
     title="IOC Enrichment Tool",
-    description="Threat Intelligence IOC Enrichment Platform",
     version="0.1.0"
 )
+
+app.include_router(router)
+
 
 @app.get("/")
 async def root():
     return {
         "status": "running",
-        "project": "IOC Enrichment Tool",
-        "author": "Tharun"
+        "project": "IOC Enrichment Tool"
     }
