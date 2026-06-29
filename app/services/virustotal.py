@@ -19,3 +19,19 @@ def check_ip(ip: str):
     response.raise_for_status()
 
     return response.json()
+
+
+def check_domain(domain: str):
+    headers = {
+        "x-apikey": settings.VIRUSTOTAL_API_KEY
+    }
+
+    response = requests.get(
+        f"{BASE_URL}/domains/{domain}",
+        headers=headers,
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    return response.json()

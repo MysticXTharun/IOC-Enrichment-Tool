@@ -4,9 +4,18 @@ from sqlalchemy.orm import Session
 import json
 
 from app.utils.ioc_detector import detect_ioc
+
 from app.services.abuseipdb import check_ip
-from app.services.virustotal import check_ip as check_vt_ip
-from app.services.otx import check_ip as check_otx_ip
+
+from app.services.otx import (
+    check_ip as check_otx_ip,
+    check_domain as check_otx_domain,
+)
+
+from app.services.virustotal import (
+    check_ip as check_vt_ip,
+    check_domain as check_vt_domain,
+)
 
 from app.database.database import get_db
 from app.database.crud import (
@@ -26,7 +35,6 @@ class IOCRequest(BaseModel):
 
 @router.post("/detect")
 def detect(request: IOCRequest):
-
     return {
         "ioc": request.ioc,
         "type": detect_ioc(request.ioc),
@@ -37,7 +45,7 @@ def detect(request: IOCRequest):
 def enrich(request: IOCRequest, db: Session = Depends(get_db)):
     ioc_type = detect_ioc(request.ioc)
 
-    # Check SQLite cache first
+    # Check cache first
     cached = get_cached_ioc(db, request.ioc)
 
     if cached:
@@ -48,6 +56,10 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
             "cached": True,
             "response": json.loads(cached.response),
         }
+
+    # -------------------------
+    # IP Addresses
+    # -------------------------
 
     if ioc_type in ("ipv4", "ipv6"):
 
@@ -77,10 +89,40 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
             "response": combined_result,
         }
 
+    # -------------------------
+    # Domains
+    # -------------------------
+
+    if ioc_type == "domain":
+
+        otx_result = check_otx_domain(request.ioc)
+        vt_result = check_vt_domain(request.ioc)
+
+        combined_result = {
+            "otx": otx_result,
+            "virustotal": vt_result,
+        }
+
+        save_ioc(
+            db=db,
+            ioc=request.ioc,
+            ioc_type=ioc_type,
+            source="OTX + VirusTotal",
+            response=combined_result,
+        )
+
+        return {
+            "ioc": request.ioc,
+            "type": ioc_type,
+            "source": "OTX + VirusTotal",
+            "cached": False,
+            "response": combined_result,
+        }
+
     raise HTTPException(
         status_code=400,
         detail="IOC type not yet supported for enrichment",
-    )   
+    )
 
 
 @router.get("/history")
