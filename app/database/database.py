@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = "sqlite:///./ioc_cache.db"
+DATABASE_URL = "sqlite:///./instance/ioc_cache.db"
 
 engine = create_engine(
     DATABASE_URL,
