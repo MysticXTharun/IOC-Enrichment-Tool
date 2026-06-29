@@ -5,6 +5,7 @@ import json
 
 from app.utils.ioc_detector import detect_ioc
 from app.services.abuseipdb import check_ip
+from app.services.virustotal import check_ip as check_vt_ip
 from app.services.otx import check_ip as check_otx_ip
 
 from app.database.database import get_db
@@ -25,6 +26,7 @@ class IOCRequest(BaseModel):
 
 @router.post("/detect")
 def detect(request: IOCRequest):
+
     return {
         "ioc": request.ioc,
         "type": detect_ioc(request.ioc),
@@ -51,24 +53,26 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
 
         abuse_result = check_ip(request.ioc)
         otx_result = check_otx_ip(request.ioc)
+        vt_result = check_vt_ip(request.ioc)
 
         combined_result = {
             "abuseipdb": abuse_result,
             "otx": otx_result,
+            "virustotal": vt_result,
         }
 
         save_ioc(
             db=db,
             ioc=request.ioc,
             ioc_type=ioc_type,
-            source="AbuseIPDB + OTX",
+            source="AbuseIPDB + OTX + VirusTotal",
             response=combined_result,
         )
 
         return {
             "ioc": request.ioc,
             "type": ioc_type,
-            "source": "AbuseIPDB + OTX",
+            "source": "AbuseIPDB + OTX + VirusTotal",
             "cached": False,
             "response": combined_result,
         }
@@ -76,7 +80,7 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
     raise HTTPException(
         status_code=400,
         detail="IOC type not yet supported for enrichment",
-    )
+    )   
 
 
 @router.get("/history")
