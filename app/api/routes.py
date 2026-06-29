@@ -5,6 +5,7 @@ import json
 
 from app.utils.ioc_detector import detect_ioc
 from app.services.abuseipdb import check_ip
+from app.services.otx import check_ip as check_otx_ip
 
 from app.database.database import get_db
 from app.database.crud import (
@@ -47,23 +48,29 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
         }
 
     if ioc_type in ("ipv4", "ipv6"):
-        result = check_ip(request.ioc)
+    abuse_result = check_ip(request.ioc)
+    otx_result = check_otx_ip(request.ioc)
 
-        save_ioc(
-            db=db,
-            ioc=request.ioc,
-            ioc_type=ioc_type,
-            source="AbuseIPDB",
-            response=result
-        )
+    combined_result = {
+        "abuseipdb": abuse_result,
+        "otx": otx_result
+    }
 
-        return {
-            "ioc": request.ioc,
-            "type": ioc_type,
-            "source": "AbuseIPDB",
-            "cached": False,
-            "response": result
-        }
+    save_ioc(
+        db=db,
+        ioc=request.ioc,
+        ioc_type=ioc_type,
+        source="AbuseIPDB + OTX",
+        response=combined_result
+    )
+
+    return {
+        "ioc": request.ioc,
+        "type": ioc_type,
+        "source": "AbuseIPDB + OTX",
+        "cached": False,
+        "response": combined_result
+    }
 
     raise HTTPException(
         status_code=400,
