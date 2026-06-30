@@ -2,25 +2,20 @@ import ipaddress
 import re
 from urllib.parse import urlparse
 
-MD5_REGEX = re.compile(r"^[a-fA-F0-9]{32}$")
-SHA1_REGEX = re.compile(r"^[a-fA-F0-9]{40}$")
-SHA256_REGEX = re.compile(r"^[a-fA-F0-9]{64}$")
+
 DOMAIN_REGEX = re.compile(
-    r"^(?!-)[A-Za-z0-9-]{1,63}(?<!-)"
-    r"(\.[A-Za-z]{2,})+$"
+    r"^(?!-)(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,}$"
 )
 
+MD5_REGEX = re.compile(r"^[A-Fa-f0-9]{32}$")
+SHA1_REGEX = re.compile(r"^[A-Fa-f0-9]{40}$")
+SHA256_REGEX = re.compile(r"^[A-Fa-f0-9]{64}$")
 
-def detect_ioc(value: str) -> str:
-    """
-    Detect the IOC type.
-    Returns:
-        ipv4, ipv6, url, domain, md5, sha1, sha256 or unknown
-    """
 
+def detect_ioc(value: str):
     value = value.strip()
 
-    # IP address
+    # IPv4 / IPv6
     try:
         ip = ipaddress.ip_address(value)
         return "ipv4" if ip.version == 4 else "ipv6"
@@ -29,8 +24,13 @@ def detect_ioc(value: str) -> str:
 
     # URL
     parsed = urlparse(value)
-    if parsed.scheme and parsed.netloc:
+
+    if parsed.scheme in ("http", "https") and parsed.netloc:
         return "url"
+
+    # Domain
+    if DOMAIN_REGEX.match(value):
+        return "domain"
 
     # Hashes
     if MD5_REGEX.match(value):
@@ -41,9 +41,5 @@ def detect_ioc(value: str) -> str:
 
     if SHA256_REGEX.match(value):
         return "sha256"
-
-    # Domain
-    if DOMAIN_REGEX.match(value):
-        return "domain"
 
     return "unknown"

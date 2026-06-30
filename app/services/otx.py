@@ -35,3 +35,19 @@ def check_domain(domain: str):
     response.raise_for_status()
 
     return response.json()
+
+
+def check_url(url: str):
+    headers = {
+        "X-OTX-API-KEY": settings.OTX_API_KEY
+    }
+
+    response = requests.get(
+        f"{BASE_URL}/url/{url}/general",
+        headers=headers,
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    return response.json()

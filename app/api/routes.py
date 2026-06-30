@@ -10,11 +10,13 @@ from app.services.abuseipdb import check_ip
 from app.services.otx import (
     check_ip as check_otx_ip,
     check_domain as check_otx_domain,
+    check_url as check_otx_url,
 )
 
 from app.services.virustotal import (
     check_ip as check_vt_ip,
     check_domain as check_vt_domain,
+    check_url as check_vt_url,
 )
 
 from app.database.database import get_db
@@ -97,6 +99,36 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
 
         otx_result = check_otx_domain(request.ioc)
         vt_result = check_vt_domain(request.ioc)
+
+        combined_result = {
+            "otx": otx_result,
+            "virustotal": vt_result,
+        }
+
+        save_ioc(
+            db=db,
+            ioc=request.ioc,
+            ioc_type=ioc_type,
+            source="OTX + VirusTotal",
+            response=combined_result,
+        )
+
+        return {
+            "ioc": request.ioc,
+            "type": ioc_type,
+            "source": "OTX + VirusTotal",
+            "cached": False,
+            "response": combined_result,
+        }
+
+    # -------------------------
+    # URLs
+    # -------------------------
+
+    if ioc_type == "url":
+
+        otx_result = check_otx_url(request.ioc)
+        vt_result = check_vt_url(request.ioc)
 
         combined_result = {
             "otx": otx_result,
