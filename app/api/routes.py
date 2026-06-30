@@ -17,6 +17,7 @@ from app.services.virustotal import (
     check_ip as check_vt_ip,
     check_domain as check_vt_domain,
     check_url as check_vt_url,
+    check_hash as check_vt_hash,
 )
 
 from app.database.database import get_db
@@ -147,6 +148,34 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
             "ioc": request.ioc,
             "type": ioc_type,
             "source": "OTX + VirusTotal",
+            "cached": False,
+            "response": combined_result,
+        }
+
+    # -------------------------
+    # File Hashes
+    # -------------------------
+
+    if ioc_type in ("md5", "sha1", "sha256"):
+
+        vt_result = check_vt_hash(request.ioc)
+
+        combined_result = {
+            "virustotal": vt_result,
+        }
+
+        save_ioc(
+            db=db,
+            ioc=request.ioc,
+            ioc_type=ioc_type,
+            source="VirusTotal",
+            response=combined_result,
+        )
+
+        return {
+            "ioc": request.ioc,
+            "type": ioc_type,
+            "source": "VirusTotal",
             "cached": False,
             "response": combined_result,
         }

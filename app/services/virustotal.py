@@ -55,3 +55,19 @@ def check_url(url: str):
     response.raise_for_status()
 
     return response.json()
+
+
+def check_hash(file_hash: str):
+    headers = {
+        "x-apikey": settings.VIRUSTOTAL_API_KEY
+    }
+
+    response = requests.get(
+        f"https://www.virustotal.com/api/v3/files/{file_hash}",
+        headers=headers,
+        timeout=30,
+    )
+
+    response.raise_for_status()
+
+    return response.json()
