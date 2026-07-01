@@ -10,6 +10,9 @@ from app.services.abuseipdb import check_ip
 
 from app.services.scoring import score_ip
 
+from app.services.hash_summary import summarize_hash
+from app.services.hash_scoring import score_hash
+
 from app.services.otx import (
     check_ip as check_otx_ip,
     check_domain as check_otx_domain,
@@ -185,7 +188,20 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
 
         vt_result = check_vt_hash(request.ioc)
 
+        summary = summarize_hash(
+            vt_result,
+        )
+
+        score = score_hash(
+            vt_result,
+        )
+
+        print("DEBUG HASH SUMMARY:", summary)
+        print("DEBUG HASH SCORE:", score)
+
         combined_result = {
+            "summary": summary,
+            "score": score,
             "virustotal": vt_result,
         }
 
@@ -209,7 +225,6 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
         status_code=400,
         detail="IOC type not yet supported for enrichment",
     )
-
 
 @router.get("/history")
 def history(db: Session = Depends(get_db)):

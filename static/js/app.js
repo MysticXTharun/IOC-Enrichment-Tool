@@ -1,4 +1,79 @@
-document.getElementById("searchBtn").addEventListener("click", enrichIOC);
+document.addEventListener("DOMContentLoaded", () => {
+    document
+        .getElementById("searchBtn")
+        .addEventListener("click", enrichIOC);
+
+    loadHistory();
+});
+
+async function loadHistory() {
+
+    try {
+
+        const response = await fetch("/history");
+        const history = await response.json();
+
+        const table = document.getElementById("historyTable");
+
+        table.innerHTML = "";
+
+        history.forEach(item => {
+
+            table.innerHTML += `
+                <tr>
+                    <td>${item.ioc}</td>
+                    <td>${item.type}</td>
+                    <td>${item.source}</td>
+                    <td>${new Date(item.created_at).toLocaleString()}</td>
+                </tr>
+            `;
+
+        });
+
+    }
+
+    catch(err){
+
+        console.error("History Error:", err);
+
+    }
+
+}
+
+function riskBadge(risk){
+
+    switch(risk){
+
+        case "High":
+            return "danger";
+
+        case "Medium":
+            return "warning";
+
+        case "Low":
+            return "info";
+
+        case "Clean":
+            return "success";
+
+        default:
+            return "secondary";
+
+    }
+
+}
+
+function safe(value){
+
+    if(value === undefined || value === null){
+
+        return "N/A";
+
+    }
+
+    return value;
+
+}
 
 async function enrichIOC() {
 
@@ -31,167 +106,135 @@ async function enrichIOC() {
 
         const data = await response.json();
 
-        const summary = data.response.summary;
-        const score = data.response.score;
+        if (!response.ok) {
+            throw new Error(data.detail || "Enrichment failed");
+        }
 
-        let badge = "secondary";
+        const summary = data.response.summary || {};
 
-        if (score.verdict === "Clean")
-            badge = "success";
+        const score = data.response.score || {
+            verdict: "N/A",
+            risk_score: 0,
+            confidence: "N/A"
+        };
 
-        if (score.verdict === "Low")
-            badge = "info";
+        result.innerHTML = renderResult(data, summary, score);
 
-        if (score.verdict === "Suspicious")
-            badge = "warning";
-
-        if (score.verdict === "Malicious")
-            badge = "danger";
-
-        result.innerHTML = `
-
-<div class="card shadow bg-secondary border-0">
-
-<div class="card-body">
-
-<h2 class="mb-4">${data.ioc}</h2>
-
-<span class="badge bg-${badge} fs-5">
-${score.verdict}
-</span>
-
-<hr>
-
-<h5>Risk Score</h5>
-
-<div class="progress mb-3" style="height:30px;">
-
-<div
-class="progress-bar bg-${badge}"
-style="width:${score.risk_score}%">
-
-${score.risk_score}/100
-
-</div>
-
-</div>
-
-<div class="row">
-
-<div class="col-md-4">
-
-<div class="card bg-dark">
-
-<div class="card-body">
-
-<h6>Confidence</h6>
-
-<h4>${score.confidence}</h4>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="col-md-4">
-
-<div class="card bg-dark">
-
-<div class="card-body">
-
-<h6>Risk</h6>
-
-<h4>${summary.risk}</h4>
-
-</div>
-
-</div>
-
-</div>
-
-<div class="col-md-4">
-
-<div class="card bg-dark">
-
-<div class="card-body">
-
-<h6>IOC Type</h6>
-
-<h4>${data.type}</h4>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-<hr>
-
-<div class="row">
-
-<div class="col-md-4">
-
-<h6>Abuse Confidence</h6>
-
-<p>${summary.abuse_confidence}</p>
-
-</div>
-
-<div class="col-md-4">
-
-<h6>VirusTotal</h6>
-
-<p>${summary.malicious_engines} malicious</p>
-
-</div>
-
-<div class="col-md-4">
-
-<h6>OTX Pulses</h6>
-
-<p>${summary.otx_pulses}</p>
-
-</div>
-
-</div>
-
-<hr>
-
-<details>
-
-<summary class="mb-3">
-
-Raw Intelligence
-
-</summary>
-
-<pre style="max-height:500px;overflow:auto;">
-
-${JSON.stringify(data.response,null,4)}
-
-</pre>
-
-</details>
-
-</div>
-
-</div>
-
-`;
+        loadHistory();
 
     }
 
-    catch(err){
+    catch (err) {
 
         result.innerHTML = `
             <div class="alert alert-danger">
-                ${err}
+                ${err.message}
             </div>
         `;
 
     }
+
+}
+
+function renderResult(data, summary, score) {
+
+    return `
+    <div class="card border-success shadow">
+
+        <div class="card-header bg-success text-white">
+            <h4>${data.ioc}</h4>
+        </div>
+
+        <div class="card-body">
+
+            <div class="row mb-4">
+
+                <div class="col-md-4">
+                    <div class="card bg-dark text-white">
+                        <div class="card-body">
+                            <h6>IOC Type</h6>
+                            <h4>${data.type}</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card bg-dark text-white">
+                        <div class="card-body">
+                            <h6>Risk</h6>
+                            <h4>
+                                <span class="badge bg-${riskBadge(summary.risk)}">
+                                    ${safe(summary.risk)}
+                                </span>
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card bg-dark text-white">
+                        <div class="card-body">
+                            <h6>Verdict</h6>
+                            <h4>${safe(score.verdict)}</h4>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="row mb-4">
+
+                <div class="col-md-3">
+                    <strong>Risk Score</strong>
+                    <p>${safe(score.risk_score)}</p>
+                </div>
+
+                <div class="col-md-3">
+                    <strong>Confidence</strong>
+                    <p>${safe(score.confidence)}</p>
+                </div>
+
+                <div class="col-md-3">
+                    <strong>Abuse Confidence</strong>
+                    <p>${safe(summary.abuse_confidence)}</p>
+                </div>
+
+                <div class="col-md-3">
+                    <strong>OTX Pulses</strong>
+                    <p>${safe(summary.otx_pulses)}</p>
+                </div>
+
+            </div>
+
+            <div class="row mb-4">
+
+                <div class="col-md-6">
+                    <strong>VirusTotal Malicious</strong>
+                    <p>${safe(summary.malicious_engines)}</p>
+                </div>
+
+                <div class="col-md-6">
+                    <strong>VirusTotal Suspicious</strong>
+                    <p>${safe(summary.suspicious_engines)}</p>
+                </div>
+
+            </div>
+
+            <hr>
+
+            <details>
+
+                <summary class="mb-3">
+                    Raw Intelligence
+                </summary>
+
+                <pre style="max-height:500px;overflow:auto;">${JSON.stringify(data.response, null, 4)}</pre>
+
+            </details>
+
+        </div>
+
+    </div>
+    `;
 
 }
