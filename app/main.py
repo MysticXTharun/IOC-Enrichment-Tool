@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.database.database import Base, engine
 from app.database import models
@@ -9,11 +12,36 @@ from app.api.routes import router
 
 app = FastAPI(title="IOC Enrichment Tool")
 
+# -----------------------------
+# Static files
+# -----------------------------
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# -----------------------------
+# HTML Templates
+# -----------------------------
+templates = Jinja2Templates(directory="templates")
+
+# -----------------------------
+# API Routes
+# -----------------------------
 app.include_router(router)
 
+# -----------------------------
+# Dashboard
+# -----------------------------
+@app.get("/", response_class=HTMLResponse)
+def dashboard(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+    )
 
-@app.get("/")
-def root():
+# -----------------------------
+# Health Check
+# -----------------------------
+@app.get("/health")
+def health():
     return {
         "status": "running",
         "project": "IOC Enrichment Tool",
