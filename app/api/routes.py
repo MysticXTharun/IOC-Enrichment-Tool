@@ -2,10 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 from app.utils.ioc_detector import detect_ioc
 
 from app.services.abuseipdb import check_ip
+
+from app.services.scoring import score_ip
 
 from app.services.otx import (
     check_ip as check_otx_ip,
@@ -19,6 +22,8 @@ from app.services.virustotal import (
     check_url as check_vt_url,
     check_hash as check_vt_hash,
 )
+
+from app.services.summary import summarize_ip
 
 from app.database.database import get_db
 from app.database.crud import (
@@ -66,11 +71,31 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
 
     if ioc_type in ("ipv4", "ipv6"):
 
-        abuse_result = check_ip(request.ioc)
-        otx_result = check_otx_ip(request.ioc)
-        vt_result = check_vt_ip(request.ioc)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+
+            abuse_future = executor.submit(check_ip, request.ioc)
+            otx_future = executor.submit(check_otx_ip, request.ioc)
+            vt_future = executor.submit(check_vt_ip, request.ioc)
+
+            abuse_result = abuse_future.result()
+            otx_result = otx_future.result()
+            vt_result = vt_future.result()
+
+        summary = summarize_ip(
+            abuse_result,
+            otx_result,
+            vt_result,
+        )
+
+        score = score_ip(
+            abuse_result,
+            otx_result,
+            vt_result,
+        )
 
         combined_result = {
+            "summary": summary,
+            "score": score,
             "abuseipdb": abuse_result,
             "otx": otx_result,
             "virustotal": vt_result,
@@ -91,7 +116,7 @@ def enrich(request: IOCRequest, db: Session = Depends(get_db)):
             "cached": False,
             "response": combined_result,
         }
-
+    
     # -------------------------
     # Domains
     # -------------------------
