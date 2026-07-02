@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.api.dashboard import router as dashboard_router
 from app.database.database import Base, engine
 from app.database import models
 
@@ -26,6 +27,7 @@ templates = Jinja2Templates(directory="templates")
 # API Routes
 # -----------------------------
 app.include_router(router)
+app.include_router(dashboard_router)
 
 # -----------------------------
 # Dashboard

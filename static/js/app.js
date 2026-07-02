@@ -1,38 +1,92 @@
+// ================================
+// IOC Enrichment Tool
+// Part 1 - Initialization, Dashboard & History
+// ================================
+
 document.addEventListener("DOMContentLoaded", () => {
+    loadDashboard();
+    loadHistory();
+
     document
         .getElementById("searchBtn")
         .addEventListener("click", enrichIOC);
-
-    loadHistory();
 });
+
+// -------------------------------
+// Dashboard
+// -------------------------------
+
+async function loadDashboard() {
+
+    try {
+
+        const response = await fetch("/dashboard");
+
+        if (!response.ok)
+            throw new Error("Unable to load dashboard");
+
+        const data = await response.json();
+
+        document.getElementById("totalIOCs").textContent =
+            data.total_iocs;
+
+        document.getElementById("ipCount").textContent =
+            data.ioc_types.ip;
+
+        document.getElementById("urlCount").textContent =
+            data.ioc_types.url;
+
+        document.getElementById("hashCount").textContent =
+            data.ioc_types.hash;
+
+    }
+
+    catch (err) {
+
+        console.error("Dashboard Error:", err);
+
+    }
+
+}
+
+// -------------------------------
+// History
+// -------------------------------
 
 async function loadHistory() {
 
     try {
 
         const response = await fetch("/history");
+
+        if (!response.ok)
+            throw new Error("Unable to load history");
+
         const history = await response.json();
 
         const table = document.getElementById("historyTable");
+
+        if (!table)
+            return;
 
         table.innerHTML = "";
 
         history.forEach(item => {
 
             table.innerHTML += `
-                <tr>
-                    <td>${item.ioc}</td>
-                    <td>${item.type}</td>
-                    <td>${item.source}</td>
-                    <td>${new Date(item.created_at).toLocaleString()}</td>
-                </tr>
-            `;
+<tr>
+    <td>${item.ioc}</td>
+    <td>${item.type}</td>
+    <td>${item.source}</td>
+    <td>${new Date(item.created_at).toLocaleString()}</td>
+</tr>
+`;
 
         });
 
     }
 
-    catch(err){
+    catch (err) {
 
         console.error("History Error:", err);
 
@@ -40,201 +94,226 @@ async function loadHistory() {
 
 }
 
-function riskBadge(risk){
-
-    switch(risk){
-
-        case "High":
-            return "danger";
-
-        case "Medium":
-            return "warning";
-
-        case "Low":
-            return "info";
-
-        case "Clean":
-            return "success";
-
-        default:
-            return "secondary";
-
-    }
-
-}
-
-function safe(value){
-
-    if(value === undefined || value === null){
-
-        return "N/A";
-
-    }
-
-    return value;
-
-}
+// ================================
+// Part 2 - IOC Enrichment
+// ================================
 
 async function enrichIOC() {
 
     const ioc = document.getElementById("iocInput").value.trim();
 
     if (!ioc) {
+
         alert("Please enter an IOC");
+
         return;
+
     }
 
     const result = document.getElementById("result");
 
     result.innerHTML = `
-        <div class="alert alert-info">
-            Enriching IOC...
-        </div>
-    `;
+<div class="alert alert-info">
+    Enriching IOC...
+</div>
+`;
 
     try {
 
         const response = await fetch("/enrich", {
+
             method: "POST",
+
             headers: {
                 "Content-Type": "application/json"
             },
+
             body: JSON.stringify({
                 ioc: ioc
             })
+
         });
+
+        if (!response.ok)
+            throw new Error("Enrichment failed");
 
         const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(data.detail || "Enrichment failed");
-        }
-
-        const summary = data.response.summary || {};
-
-        const score = data.response.score || {
-            verdict: "N/A",
-            risk_score: 0,
-            confidence: "N/A"
-        };
-
-        result.innerHTML = renderResult(data, summary, score);
+        renderResult(data);
 
         loadHistory();
+
+        loadDashboard();
 
     }
 
     catch (err) {
 
         result.innerHTML = `
-            <div class="alert alert-danger">
-                ${err.message}
-            </div>
-        `;
+<div class="alert alert-danger">
+    ${err}
+</div>
+`;
 
     }
 
 }
 
-function renderResult(data, summary, score) {
+// -------------------------------
+// Result Renderer
+// -------------------------------
 
-    return `
-    <div class="card border-success shadow">
+function renderResult(data) {
 
-        <div class="card-header bg-success text-white">
-            <h4>${data.ioc}</h4>
-        </div>
+    const result = document.getElementById("result");
 
-        <div class="card-body">
+    const summary = data.response.summary || {};
 
-            <div class="row mb-4">
+    const score = data.response.score || {};
 
-                <div class="col-md-4">
-                    <div class="card bg-dark text-white">
-                        <div class="card-body">
-                            <h6>IOC Type</h6>
-                            <h4>${data.type}</h4>
-                        </div>
-                    </div>
-                </div>
+    result.innerHTML = `
 
-                <div class="col-md-4">
-                    <div class="card bg-dark text-white">
-                        <div class="card-body">
-                            <h6>Risk</h6>
-                            <h4>
-                                <span class="badge bg-${riskBadge(summary.risk)}">
-                                    ${safe(summary.risk)}
-                                </span>
-                            </h4>
-                        </div>
-                    </div>
-                </div>
+<div class="card bg-dark text-white">
 
-                <div class="col-md-4">
-                    <div class="card bg-dark text-white">
-                        <div class="card-body">
-                            <h6>Verdict</h6>
-                            <h4>${safe(score.verdict)}</h4>
-                        </div>
-                    </div>
-                </div>
+<div class="card-body">
 
-            </div>
+<h3>${data.ioc}</h3>
 
-            <div class="row mb-4">
+<hr>
 
-                <div class="col-md-3">
-                    <strong>Risk Score</strong>
-                    <p>${safe(score.risk_score)}</p>
-                </div>
+<div class="row">
 
-                <div class="col-md-3">
-                    <strong>Confidence</strong>
-                    <p>${safe(score.confidence)}</p>
-                </div>
+<div class="col-md-4">
 
-                <div class="col-md-3">
-                    <strong>Abuse Confidence</strong>
-                    <p>${safe(summary.abuse_confidence)}</p>
-                </div>
+<h6>IOC Type</h6>
 
-                <div class="col-md-3">
-                    <strong>OTX Pulses</strong>
-                    <p>${safe(summary.otx_pulses)}</p>
-                </div>
+<h4>${data.type}</h4>
 
-            </div>
+</div>
 
-            <div class="row mb-4">
+<div class="col-md-4">
 
-                <div class="col-md-6">
-                    <strong>VirusTotal Malicious</strong>
-                    <p>${safe(summary.malicious_engines)}</p>
-                </div>
+<h6>Risk Verdict</h6>
 
-                <div class="col-md-6">
-                    <strong>VirusTotal Suspicious</strong>
-                    <p>${safe(summary.suspicious_engines)}</p>
-                </div>
+<h4>${score.verdict ?? "Unknown"}</h4>
 
-            </div>
+</div>
 
-            <hr>
+<div class="col-md-4">
 
-            <details>
+<h6>Risk Score</h6>
 
-                <summary class="mb-3">
-                    Raw Intelligence
-                </summary>
+<h4>${score.risk_score ?? "-"}</h4>
 
-                <pre style="max-height:500px;overflow:auto;">${JSON.stringify(data.response, null, 4)}</pre>
+</div>
 
-            </details>
+</div>
 
-        </div>
+<hr>
 
-    </div>
-    `;
+<div class="row">
+
+<div class="col-md-3">
+
+<h6>Risk</h6>
+
+<p>${summary.risk ?? "-"}</p>
+
+</div>
+
+<div class="col-md-3">
+
+<h6>Abuse Score</h6>
+
+<p>${summary.abuse_confidence ?? "-"}</p>
+
+</div>
+
+<div class="col-md-3">
+
+<h6>VT Malicious</h6>
+
+<p>${summary.malicious_engines ?? "-"}</p>
+
+</div>
+
+<div class="col-md-3">
+
+<h6>OTX Pulses</h6>
+
+<p>${summary.otx_pulses ?? "-"}</p>
+
+</div>
+
+</div>
+
+<hr>
+
+<details>
+
+<summary class="mb-3">
+
+Raw Intelligence
+
+</summary>
+
+<pre style="max-height:500px;overflow:auto;">
+${JSON.stringify(data.response, null, 4)}
+</pre>
+
+</details>
+
+</div>
+
+</div>
+
+`;
 
 }
+
+// ================================
+// Part 3 - Helper Functions
+// ================================
+
+// Press Enter to search
+
+const iocInput = document.getElementById("iocInput");
+
+if (iocInput) {
+
+    iocInput.addEventListener("keypress", function (event) {
+
+        if (event.key === "Enter") {
+
+            enrichIOC();
+
+        }
+
+    });
+
+}
+
+// -------------------------------
+// Utility
+// -------------------------------
+
+function showAlert(message, type = "info") {
+
+    const result = document.getElementById("result");
+
+    result.innerHTML = `
+<div class="alert alert-${type}">
+    ${message}
+</div>
+`;
+
+}
+
+// -------------------------------
+// Console Banner
+// -------------------------------
+
+console.log(
+    "%cIOC Enrichment Tool Loaded",
+    "color:lime;font-size:14px;font-weight:bold;"
+);
